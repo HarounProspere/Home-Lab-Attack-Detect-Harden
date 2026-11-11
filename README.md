@@ -21,7 +21,7 @@ Security Architecture domains of CompTIA Security+.
 - UTM virtualization (Apple Silicon)
 - Nmap (network scanning)
 - Hydra (brute-force attack)
-- Wireshark / system logs (detection)
+- System logs with journalctl (detection)
 - UFW firewall, fail2ban, key-only SSH (hardening)
 
 ## 1. Build the Target
@@ -35,8 +35,14 @@ sudo systemctl enable --now ssh
 sudo systemctl enable --now nginx
 ```
 
+![Services installed](screenshots/01-services-installed.png)
+
 I learned the difference between a service being *installed* and being
 *active*: SSH was installed but inactive until I explicitly enabled it.
+
+![SSH running](screenshots/02-ssh-running.png)
+
+![Nginx running](screenshots/03-nginx-running.png)
 
 ## 2. Configure the Firewall
 
@@ -52,6 +58,8 @@ sudo ufw enable
 
 Result: only ports 22 (SSH) and 80 (HTTP) are allowed; everything else is
 denied. This is attack surface reduction.
+
+![Firewall before and after](screenshots/04-firewall-before-after.png)
 
 ## 3. Reconnaissance (Nmap)
 
@@ -70,6 +78,8 @@ The filtered ports confirm the firewall is working. The two open ports are
 my attack surface. An open port is not automatically a weakness; it only
 becomes one if the service behind it is weak.
 
+![Nmap scan](screenshots/05-nmap-scan.png)
+
 ## 4. Brute-Force Attack (Hydra)
 
 To demonstrate a realistic attack, I created a test account with a weak
@@ -80,9 +90,11 @@ hydra -l testuser -P words.txt ssh://192.168.64.6
 ```
 
 Result: Hydra found the password in about four seconds. This is why SSH
-password login is a weak default. (First attempt failed due to a username
-typo, which I found and corrected, a good reminder to verify setup before
-blaming the tool.)
+password login is a weak default. My first attempt failed because of a typo
+in the username, which I found and corrected, a good reminder to verify
+setup before blaming the tool.
+
+![Hydra cracked the password](screenshots/06-hydra-cracked-password.png)
 
 ## 5. Detection (Logs)
 
@@ -96,19 +108,17 @@ Every failed login came from the same IP (Kali, 192.168.64.7), and several
 hit within the same second. Many failures in a short time from one address
 is the signature of a brute-force attack, not a user who forgot a password.
 
+![Failed logins detected](screenshots/07-failed-logins-detected.png)
+
 ## 6. Hardening
 
 Applied three layers of defense:
 
-**fail2ban** automatically bans an IP after repeated failures.
+**fail2ban** automatically bans an IP after repeated failures. A test run
+with wrong passwords triggered a ban of Kali's IP.
 
 ```
 sudo apt install fail2ban -y
-```
-
-A test run with wrong passwords triggered a ban of Kali's IP, confirmed with:
-
-```
 sudo fail2ban-client status sshd
 ```
 
@@ -123,6 +133,8 @@ PasswordAuthentication no
 PermitRootLogin no
 ```
 
+![fail2ban and hardening](screenshots/08-fail2ban-and-hardening.png)
+
 ## 7. Verify (Before and After)
 
 Ran the exact same Hydra attack again.
@@ -135,6 +147,8 @@ Result: `[ERROR] target does not support password authentication`.
 
 The attack that cracked the password minutes earlier could no longer even
 attempt it. The hardening worked.
+
+![Attack blocked](screenshots/09-attack-blocked.png)
 
 ## Results
 
@@ -152,9 +166,3 @@ attempt it. The hardening worked.
 - Firewall configuration and attack surface reduction
 - Defense in depth and system hardening
 - Verifying security controls rather than assuming them
-
-## Screenshots
-
-See the `/screenshots` folder for evidence of each stage: services running,
-firewall before/after, Nmap scan, Hydra cracking the password, failed logins
-in the logs, fail2ban banning the attacker, and the final attack failing.
